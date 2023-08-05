@@ -1,2 +1,2 @@
 # shin
-A game manager that must do the job right
+A game manager that must do the job right. What does it mean? Well it means that the game manager has to handle the wineprefix, dependencies, and other stuff and it should **never** fail. While this is basically the absolute minimum that every project do, i see a very popular project that fails to install the dependencies needed to play the game. Also this will provide an easy way to manage game that is preinstalled.
