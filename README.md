@@ -21,5 +21,5 @@ When you are using the `run` command, you can use the provided arguments to tune
 - `--game-mode` Enable Feral Interactive Game Mode, result may vary
 
 #### Why does this exist
-I have been using a specific game launcher and evertime i try to setup my games, it usually doesnt end up well. Some game have a weird GLX error and some game doesnt have DXVK installed even though i have turned one the option. This project wouldnt exist if its not because of my frustration.
+I have been using a specific game launcher and evertime i try to setup my games, it usually doesnt end up well. Some game have a weird GLX error and some game doesnt have DXVK installed even though i have turned on the option. This project wouldnt exist if its not because of my frustration.
 
