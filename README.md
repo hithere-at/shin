@@ -9,6 +9,7 @@ To run the game, run `$ shin run <game id> [ARGUMENTS]` and the game should star
 ## Installation
 ```sh
 wget https://raw.githubusercontent.com/hithere-at/shin/master/shin
+chmod +x shin
 sudo mv shin /usr/local/bin
 ```
 
