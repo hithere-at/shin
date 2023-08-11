@@ -1,4 +1,4 @@
-# shin
+ # shin
 A game launcher that "just works". It aims to setup your pre-installed game easier.
 
 ## How to use
@@ -18,7 +18,7 @@ When you are using the `run` command, you can use the provided arguments to tune
 
 - `--nv-prime-offload` Run the game on discrete GPU instead of built-in CPU graphics (for NVIDIA user with proprietary driver only)
 - `--prime-offload` Same as above but this is for open source drivers
-- `--game-mode` Enable Feral Interactive Game Mode, resuly may vary
+- `--game-mode` Enable Feral Interactive Game Mode, result may vary
 
 #### Why does this exist
 I have been using a specific game launcher and evertime i try to setup my games, it usually doesnt end up well. Some game have a weird GLX error and some game doesnt have DXVK installed even though i have turned one the option. This project wouldnt exist if its not because of my frustration.
