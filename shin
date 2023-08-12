@@ -1,16 +1,59 @@
 #!/bin/sh
 
 prefix_addition=""
+with_dxvk="yes"
 
 configure_dxvk() {
-    local version download_dir 
+    local version download_dir check_recent_ver sys32_path sys64_path
 
-    echo "Vulkan device found. Configuring DXVK..."
-    version="1.10.3"
+    printf "Vulkan device found. Configuring DXVK...\n" 
+
+    # New drivers should support Vulkan 1.3
+    check_recent_ver=$(vulkaninfo | grep -o "1\.3")
+    if [ "$check_recent_ver" ]; then
+        printf "Vulkan 1.3 device detected, using the latest DXVK version...\n"
+        version="2.2"
+
+    else
+        printf "No Vulkan 1.3 device detected. Using the latest legacy DXVK version (1.10.3)\n"
+        version="1.10.3"
+
+    fi
+
     download_dir="~/.local/share/shin/tools"
-    wget -P "$download_dir" "https://github.com/doitsujin/dxvk/releases/download/v${version}/dxvk-${version}.tar.gz"
+    wget -P -q "$download_dir" "https://github.com/doitsujin/dxvk/releases/download/v${version}/dxvk-${version}.tar.gz"
     tar -xf "$download_dir/dxvk-${version}.tar.gz" -C "$download_dir"
-    WINEPREFIX="$1" "$download_dir/dxvk-$version/setup-dxvk.sh install" > /dev/null 2>&1
+    
+    cd "$download_dir/dxvk-${version}"
+
+    # Someone please shorten this
+    # Install 32-bit libraries
+    sys32_path="$1/drive_c/windows/system32"
+    mv "$sys32_path/d3d10_1.dll" "$sys32_path/d3d10_1.dll.old"
+    mv "$sys32_path/d3d10core.dll" "$sys32_path/d3d10core.dll.old"
+    mv "$sys32_path/d3d10.dll" "$sys32_path/d3d10.dll.old"
+    mv "$sys32_path/d3d9.dll" "$sys32_path/d3d9.dll.old"
+    mv "$sys32_path/d3d11.dll" "$sys32_path/d3d11.dll.old"
+    mv "$sys32_path/dxgi.dll" "$sys32_path/dxgi.dll.old"
+    cp "x32/*.dll" "$sys32_path"
+
+    # Install 64-bit libraries
+    sys64_path="$1/drive_c/windows/syswow64"
+    mv "$sys64_path/d3d10_1.dll" "$sys64_path/d3d10_1.dll.old"
+    mv "$sys64_path/d3d10core.dll" "$sys64_path/d3d10core.dll.old"
+    mv "$sys64_path/d3d10.dll" "$sys64_path/d3d10.dll.old"
+    mv "$sys64_path/d3d9.dll" "$sys64_path/d3d9.dll.old"
+    mv "$sys64_path/d3d11.dll" "$sys64_path/d3d11.dll.old"
+    mv "$sys64_path/dxgi.dll" "$sys64_path/dxgi.dll.old"
+    cp "x64/*.dll" "$sys64_path"
+
+    export WINEPREFIX="$1"
+    wine reg add 'HKEY_CURRENT_USER\Software\Wine\DllOverrides' /v d3d10_1 /d native /f >/dev/null 2>&1
+    wine reg add 'HKEY_CURRENT_USER\Software\Wine\DllOverrides' /v d3d10 /d native /f >/dev/null 2>&1
+    wine reg add 'HKEY_CURRENT_USER\Software\Wine\DllOverrides' /v d3d10core /d native /f >/dev/null 2>&1
+    wine reg add 'HKEY_CURRENT_USER\Software\Wine\DllOverrides' /v d3d9 /d native /f >/dev/null 2>&1
+    wine reg add 'HKEY_CURRENT_USER\Software\Wine\DllOverrides' /v d3d11 /d native /f >/dev/null 2>&1
+    wine reg add 'HKEY_CURRENT_USER\Software\Wine\DllOverrides' /v dxgi /d native /f >/dev/null 2>&1
 
 }
 
@@ -22,7 +65,7 @@ vulkan_is_there() {
     [ $vk_devices -gt 0 ] && return 0 || return 1
 }
 
-parse_opt() {
+parse_add_opt() {
 
     shift; shift
 
@@ -30,7 +73,27 @@ parse_opt() {
         printf "Arguments: $1\n"
 
         case "$1" in
-            --nv-prime-offload) prefix_addition="${prefix_addition} __NV_PRIME_RENDER_OFFLOAD=1 __GLX_VENDOR_LIBRARY_NAME=nvidia";;
+            --without-dxvk) with_dxvk="no";;
+
+        esac
+
+        shift
+
+    done
+
+}
+
+parse_run_opt() {
+
+    shift; shift
+
+    while [ $# -gt 0 ]; do
+        printf "Arguments: $1\n"
+
+        case "$1" in
+            --nv-glx-offload) prefix_addition="${prefix_addition} __NV_PRIME_RENDER_OFFLOAD=1 __GLX_VENDOR_LIBRARY_NAME=nvidia";;
+            --nv-vk-offload) prefix_addition="${prefix_addition} __NV_PRIME_RENDER_OFFLOAD=1 __VK_LAYER_NV_optimus=NVIDIA_only";;
+            --use-zink) prefix_addition="${prefix_addition} __GLX_VENDOR_LIBRARY_NAME=mesa MESA_LOADER_DRIVER_OVERRIDE=zink GALLIUM_DRIVER=zink";;
             --prime-offload) prefix_addition="${prefix_addition} DRI_PRIME=1";; 
             --game-mode) prefix_addition="${prefix_addition} gamemoderun";;
 
@@ -45,7 +108,10 @@ parse_opt() {
 operation_run() {
     local game_inf game_name game_runner game_dir game_exe game_cmd_prefix previous_dir
 
-    game_inf=$(grep "$1" ~/.local/share/shin/mess.vars)
+    game_inf=$(grep "${1}_" ~/.local/share/shin/mess.vars)
+
+    [ -z "$(echo $game_inf)" ] && printf "No games found using the specified ID\n" && exit
+
     game_name=$(echo "$game_inf" | grep -o "${2}_NAME='[^']*" | sed "s/${2}_NAME='//")
     game_runner=$(echo "$game_inf" | grep -o "${2}_RUNNER='[^']*" | sed "s/${2}_RUNNER='//")
     game_dir=$(echo "$game_inf" | grep -o "${2}_DIR='[^']*" | sed "s/${2}_DIR='//")
@@ -82,14 +148,19 @@ operation_add() {
         runner="native"
 
     else
+        wine_prefix="$HOME/.local/share/shin/wineprefixes/$1"
         printf "Configuring wine prefix...\n"
-        ! [ -d "$HOME/.local/share/shin/wineprefixes/$1" ] && mkdir -p "$HOME/.local/share/shin/wineprefixes/$1"
-        WINEPREFIX="$HOME/.local/share/shin/wineprefixes/$1" wineboot -u > /dev/null 2>&1
-        is_vulkan_there=$(vulkan_is_there)
+        ! [ -d "$wine_prefix" ] && mkdir -p "$wine_prefix"
+        WINEPREFIX="$wine_prefix" wineboot -u > /dev/null 2>&1
 
-        [ $is_vulkan_there = 0 ] && configure_dxvk "$HOME/.local/share/shin/wineprefixes/$1" || printf "No Vulkan device found. Falling back to WINED3D"
+        if [ "$with_dxvk" = "yes" ]; then
+            is_vulkan_there=$(vulkan_is_there)
+            [ $is_vulkan_there = 0 ] && configure_dxvk "$wine_prefix" || printf "No Vulkan device found. Falling back to WINED3D"
+
+        fi
+
         runner="wine"
-        cmd_prefix="WINEFSYNC=1 WINEESYNC=1 WINEPREFIX=$HOME/.local/share/shin/wineprefixes/$1"
+        cmd_prefix="WINEFSYNC=1 WINEESYNC=1 WINEPREFIX=$wine_prefix"
 
     fi
 
@@ -102,9 +173,8 @@ operation_add() {
 
 ## MAIN ##
 
-parse_opt "$@"
-
 if [ "$1" = add ]; then
+    parse_add_opt "$@"
     printf "Please enter the game ID This will be used to identify your game when using the 'run' operation\n>> "
     read -r game_id
 
@@ -114,6 +184,7 @@ if [ "$1" = add ]; then
     operation_add "$game_id" "$game_name" "$2"
 
 elif [ "$1" = "run"  ]; then
+    parse_run_opt "$@"
     operation_run "$2"
 
 elif [ "$1" = "list" ]; then
@@ -122,18 +193,25 @@ elif [ "$1" = "list" ]; then
 
 elif [ "$1" = "help" ]; then 
     cat << EOF
-Usage: shin <command> <command arg> [ARGUMENTS]...
+Usage: shin <command> <command arg> [OPTIONS]...
 
 Example: shin add <game path>
          shin run <game id> --game-mode --nv-prime-offload
 
-Options:
+\`run\` Options:
 
-         --nv-prime-offload         Run the game on NVIDIA GPU using PRIME render offload
+         --nv-glx-offload           Run OpenGL game on NVIDIA GPU
+         --nv-vk-offload            Run Vulkan game on NVIDIA GPU
+         --use-zink                 Translate OpenGL to Vulkan using Mesa Zink driver, might improve 
+                                    OpenGL games performance
          --prime-offload            Run the game on discrete GPU using PRIME render offload
                                     (only for open-source drivers)
          --game-mode                Run the game with Feral Interactive Game Mode to
                                     optimize gaming performance
+
+\`add\` Options:
+
+         --without-dxvk             Configure wine prefix without DXVK
 EOF
 
 fi
