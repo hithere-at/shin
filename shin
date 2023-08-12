@@ -9,7 +9,7 @@ configure_dxvk() {
     printf "Vulkan device found. Configuring DXVK...\n" 
 
     # New drivers should support Vulkan 1.3
-    check_recent_ver=$(vulkaninfo --summary | grep apiVersion | grep -o "1\.2")
+    check_recent_ver=$(vulkaninfo --summary | grep apiVersion | grep -o "1\.3")
     if [ "$check_recent_ver" ]; then
         printf "Vulkan 1.3 device detected, using the latest DXVK version...\n"
         version="2.2"
