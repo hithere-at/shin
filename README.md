@@ -14,11 +14,10 @@ sudo mv shin /usr/local/bin
 ```
 
 ### Arguments
-When you are using the `run` command, you can use the provided arguments to tune the game to your liking (e.g run on discrete GPU)
+When you are using the `run` command, you can use the provided arguments to tune the game to your liking (e.g run on discrete GPU). Run `$ shin help for details`,
 
-- `--nv-prime-offload` Run the game on discrete GPU instead of built-in CPU graphics (for NVIDIA user with proprietary driver only)
-- `--prime-offload` Same as above but this is for open source drivers
-- `--game-mode` Enable Feral Interactive Game Mode, result may vary
+### Configuration
+You can configure your game manually by editing the file located at `~/.local/share/shin/mess.vars`.
 
 #### Why does this exist
 I have been using a specific game launcher and evertime i try to setup my games, it usually doesnt end up well. Some game have a weird GLX error and some game doesnt have DXVK installed even though i have turned on the option. This project wouldnt exist if its not because of my frustration.
