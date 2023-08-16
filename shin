@@ -2,65 +2,106 @@
 
 prefix_addition=""
 with_dxvk="yes"
+dxvk_version=""
+vkd3d_version="no"
 
-configure_dxvk() {
-    local version download_dir check_recent_ver sys32_path sys64_path
+# args: $1 = Download directory
+#       $2 = DXVK version
+#       $3 = VKD3D version
+unpack_dxvk() {
+    local dxvk_dl_link vkd3d_dl_link
 
-    printf "Vulkan device found. Configuring DXVK...\n" 
-
-    # New drivers should support Vulkan 1.3
-    check_recent_ver=$(vulkaninfo --summary | grep apiVersion | grep -o "1\.3")
-    if ! [ -z "$check_recent_ver" ]; then
-        printf "Vulkan 1.3 device detected, using the latest DXVK version...\n"
-        version="2.2"
+    # DXVK part
+    if [ "$2" = "async" ]; then
+        dxvk_dl_link="https://gtihub.com/Sporif/dxvk-async/releases/download/1.10.3/dxvk-async-1.10.3.tar.gz"
+        dxvk_version="async-1.10.3"
 
     else
-        printf "No Vulkan 1.3 device detected. Using the latest legacy DXVK version (1.10.3)\n"
-        version="1.10.3"
+        dxvk_dl_link="https://github.com/doitsujin/dxvk/releases/download/v${2}/dxvk-${2}.tar.gz"
+        dxvk_version="$2"
 
     fi
 
-    download_dir="~/.local/share/shin/tools"
-    wget -P -q "$download_dir" "https://github.com/doitsujin/dxvk/releases/download/v${version}/dxvk-${version}.tar.gz"
-    tar -xf "$download_dir/dxvk-${version}.tar.gz" -C "$download_dir"
-    
-    cd "$download_dir/dxvk-${version}"
+    wget -q -P "$1" "$dxvk_dl_link"
+    tar -xf "$1/dxvk-${dxvk_version}.tar.gz" -C "$1"
+    rm "$1/dxvk-${dxvk_version}.tar.gz"
 
-    # Someone please shorten this
-    # Install 32-bit libraries
+    # Now lets do VKD3D, ughhh...
+    if ! [ "$3" = "no" ]; then
+        vkd3d_dl_link="https://github.com/HansKristian-Work/vkd3d-proton/releases/download/v${3}/vkd3d-proton-${3}.tar.zst"
+        wget -q -P "$1" "$vkd3d_dl_link"
+        tar -xf "$1/vkd3d-proton-${$3}.tar.zst" -C "$1"
+        rm "$download_dir/vkd3d-proton-${3}.tar.zst"
+
+    fi
+
+}
+
+# args: $1 = wine prefix
+#       $2 = System libraries path (system32 or syswow64)
+#       $3 = DLL directory
+#       $@ = libs (d3d stuff)
+install_dll() {
+    local prefix sys_path dll_dir
+
+    prefix="$1"
+    sys_path="$2"
+    dll_dir="$3"
+
+    shift; shift; shift
+
+    while [ $# -gt 0 ]; then
+        mv "$sys_path/$1.dll" "$sys_path/$1.dll.old"
+        cp "$dll_dir/$1.dll" "$sys_path"
+        WINEPREFIX="$prefix" wine reg add 'HKEY_CURRENT_USER\Software\Wine\DllOverrides' /v "$1" /d native /f >/dev/null 2>&1
+
+    done
+
+}
+
+configure_dxvk() {
+    local download_dir check_recent_ver sys32_path sys64_path
+
+    printf "Vulkan device found. Configuring DXVK...\n"
+
+    # New drivers should support Vulkan 1.3
+    # Also this is where the DXVK version checks goes
+    check_recent_vk_ver=$(vulkaninfo --summary | grep apiVersion | grep -o "1\.3")
+
+    if ! [ -z "$check_recent_vk_ver" ]; then
+        printf "Vulkan 1.3 device detected, using the latest DXVK version...\n"
+        dxvk_version="2.2"
+        vkd3d_version="2.9"
+
+    else
+        printf "No Vulkan 1.3 device detected\n"
+
+        [ "$vkd3d_version" = "legacy" ] && printf "Using legacy VKD3D (v2.6)...\n" && vkd3d_version="2.6"
+        ! [ "$dxvk_version" = "async" ] && printf "Using legacy DXVK (v1.10.3)...\n" && dxvk_version="1.10.3" || printf "Using DXVK Async (v1.10.3)..\n"
+
+    fi
+
+    unpack_dxvk "$download_dir" "$dxvk_version" "$vkd3d_version"
+
     sys32_path="$1/drive_c/windows/system32"
-    mv "$sys32_path/d3d10_1.dll" "$sys32_path/d3d10_1.dll.old"
-    mv "$sys32_path/d3d10core.dll" "$sys32_path/d3d10core.dll.old"
-    mv "$sys32_path/d3d10.dll" "$sys32_path/d3d10.dll.old"
-    mv "$sys32_path/d3d9.dll" "$sys32_path/d3d9.dll.old"
-    mv "$sys32_path/d3d11.dll" "$sys32_path/d3d11.dll.old"
-    mv "$sys32_path/dxgi.dll" "$sys32_path/dxgi.dll.old"
-    cp "x32/*.dll" "$sys32_path"
-
-    # Install 64-bit libraries
     sys64_path="$1/drive_c/windows/syswow64"
-    mv "$sys64_path/d3d10_1.dll" "$sys64_path/d3d10_1.dll.old"
-    mv "$sys64_path/d3d10core.dll" "$sys64_path/d3d10core.dll.old"
-    mv "$sys64_path/d3d10.dll" "$sys64_path/d3d10.dll.old"
-    mv "$sys64_path/d3d9.dll" "$sys64_path/d3d9.dll.old"
-    mv "$sys64_path/d3d11.dll" "$sys64_path/d3d11.dll.old"
-    mv "$sys64_path/dxgi.dll" "$sys64_path/dxgi.dll.old"
-    cp "x64/*.dll" "$sys64_path"
 
-    export WINEPREFIX="$1"
-    wine reg add 'HKEY_CURRENT_USER\Software\Wine\DllOverrides' /v d3d10_1 /d native /f >/dev/null 2>&1
-    wine reg add 'HKEY_CURRENT_USER\Software\Wine\DllOverrides' /v d3d10 /d native /f >/dev/null 2>&1
-    wine reg add 'HKEY_CURRENT_USER\Software\Wine\DllOverrides' /v d3d10core /d native /f >/dev/null 2>&1
-    wine reg add 'HKEY_CURRENT_USER\Software\Wine\DllOverrides' /v d3d9 /d native /f >/dev/null 2>&1
-    wine reg add 'HKEY_CURRENT_USER\Software\Wine\DllOverrides' /v d3d11 /d native /f >/dev/null 2>&1
-    wine reg add 'HKEY_CURRENT_USER\Software\Wine\DllOverrides' /v dxgi /d native /f >/dev/null 2>&1
+    # Install DXVK libraries (x32 and x64)
+    install_dll "$1" "$sys32_path" "$download_dir/dxvk-${dxvk_version}/x32" "d3d9" "d3d10" "d3d10_1" "d3d10core" "d3d11" "dxgi"
+    install_dll "$1" "$sys64_path" "$download_dir/dxvk-${dxvk_version}/x64" "d3d9" "d3d10" "d3d10_1" "d3d10core" "d3d11" "dxgi"
+
+    if ! [ "$vkd3d_version" = "no" ]; then
+        install_dll "$1" "$sys32_path" "$download_dir/vkd3d-proton-${vkd3d_version}/x86" "d3d12" "d3d12core"
+        install_dll "$1" "$sys32_path" "$download_dir/vkd3d-proton-${vkd3d_version}/x64" "d3d12" "d3d12core"
+
+    fi
 
 }
 
 vulkan_is_there() {
     local death vk_devices
 
-    death=$(vulkaninfo | grep 'Vulkan version')
+    death=$(vulkaninfo --summary | grep deviceName)
     vk_devices=$(echo "$death" | wc -l)
     [ $vk_devices -gt 0 ] && return 0 || return 1
 }
@@ -74,7 +115,8 @@ parse_add_opt() {
 
         case "$1" in
             --without-dxvk) with_dxvk="no";;
-
+            --with-dxvk-async) dxvk_version="async";;
+            --with-vkd3d-legacy) vkd3d_version="legacy";;
         esac
 
         shift
@@ -94,7 +136,7 @@ parse_run_opt() {
             --nv-glx-offload) prefix_addition="${prefix_addition} __NV_PRIME_RENDER_OFFLOAD=1 __GLX_VENDOR_LIBRARY_NAME=nvidia";;
             --nv-vk-offload) prefix_addition="${prefix_addition} __NV_PRIME_RENDER_OFFLOAD=1 __VK_LAYER_NV_optimus=NVIDIA_only";;
             --use-zink) prefix_addition="${prefix_addition} __GLX_VENDOR_LIBRARY_NAME=mesa MESA_LOADER_DRIVER_OVERRIDE=zink GALLIUM_DRIVER=zink";;
-            --prime-offload) prefix_addition="${prefix_addition} DRI_PRIME=1";; 
+            --prime-offload) prefix_addition="${prefix_addition} DRI_PRIME=1";;
             --game-mode) prefix_addition="${prefix_addition} gamemoderun";;
 
         esac
@@ -121,7 +163,7 @@ operation_run() {
     printf "Command prefix additions: $prefix_addition\n"
     printf "Game command prefix: $game_cmd_prefix\n"
     printf "Starting $game_name...\n"
-    
+
     previous_dir=$PWD
     cd "$game_dir"
 
@@ -141,7 +183,7 @@ operation_add() {
     local exe_type runner cmd_prefix is_vulkan_there game_dir game_exe
 
     exe_type=$(echo "$3" | grep -o ".exe$")
-    game_file=$(realpath "$3")    
+    game_file=$(realpath "$3")
 
     if [ -z "$exe_type" ]; then
         chmod +x "$3"
@@ -191,7 +233,7 @@ elif [ "$1" = "list" ]; then
     names=$(grep -o "[^_]*_NAME='[^']*" $HOME/.local/share/shin/mess.vars | sed "s/_NAME='/: /g")
     echo "$names"
 
-elif [ "$1" = "help" ]; then 
+elif [ "$1" = "help" ]; then
     cat << EOF
 Usage: shin <command> <command arg> [OPTIONS]...
 
@@ -202,8 +244,8 @@ Example: shin add <game path>
 
          --nv-glx-offload           Run OpenGL game on NVIDIA GPU
          --nv-vk-offload            Run Vulkan game on NVIDIA GPU
-         --use-zink                 Translate OpenGL to Vulkan using Mesa Zink driver, might improve 
-                                    OpenGL games performance
+         --use-zink                 Translate OpenGL to Vulkan using Mesa Zink driver, might improve
+                                    OpenGL games performance and cause graphical glitches
          --prime-offload            Run the game on discrete GPU using PRIME render offload
                                     (only for open-source drivers)
          --game-mode                Run the game with Feral Interactive Game Mode to
@@ -212,6 +254,11 @@ Example: shin add <game path>
 \`add\` Options:
 
          --without-dxvk             Configure wine prefix without DXVK
+         --with-dxvk-async          Configure wine prefix with DXVK Async (v1.10.3), may reduce
+                                    stutters. Use this if your GPU doesnt support Vulkan 1.3
+         --with-vkd3d-legacy        Configure wine prefix with legacy VKD3D (v2.6). Not recommended as
+                                    it may cause graphical glitches or the FPS will be a dumpster fire
+                                    (if you plan to run it on a Vulkan < 1.3 device)
 EOF
 
 fi
