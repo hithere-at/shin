@@ -50,7 +50,7 @@ install_dll() {
 
     shift; shift; shift
 
-    while [ $# -gt 0 ]; then
+    while [ $# -gt 0 ]; do
         mv "$sys_path/$1.dll" "$sys_path/$1.dll.old"
         cp "$dll_dir/$1.dll" "$sys_path"
         WINEPREFIX="$prefix" wine reg add 'HKEY_CURRENT_USER\Software\Wine\DllOverrides' /v "$1" /d native /f >/dev/null 2>&1
