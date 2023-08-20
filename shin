@@ -1,7 +1,6 @@
 #!/bin/sh
 
 prefix_addition=""
-game_cmd_prefix=""
 with_dxvk="yes"
 dxvk_version=""
 vkd3d_version="no"
@@ -88,8 +87,8 @@ configure_dxvk() {
     sys64_path="$1/drive_c/windows/syswow64"
 
     # Install DXVK libraries (x32 and x64)
-    install_dll "$1" "$sys32_path" "$download_dir/dxvk-${dxvk_version}/x32" "d3d9" "d3d10" "d3d10_1" "d3d10core" "d3d11" "dxgi"
-    install_dll "$1" "$sys64_path" "$download_dir/dxvk-${dxvk_version}/x64" "d3d9" "d3d10" "d3d10_1" "d3d10core" "d3d11" "dxgi"
+    install_dll "$1" "$sys32_path" "$download_dir/dxvk-${dxvk_version}/x32" "d3d9" "d3d10core" "d3d11" "dxgi"
+    install_dll "$1" "$sys64_path" "$download_dir/dxvk-${dxvk_version}/x64" "d3d9" "d3d10core" "d3d11" "dxgi"
 
     if ! [ "$vkd3d_version" = "no" ]; then
         install_dll "$1" "$sys32_path" "$download_dir/vkd3d-proton-${vkd3d_version}/x86" "d3d12" "d3d12core"
@@ -134,11 +133,13 @@ parse_run_opt() {
         printf "Argument: $1\n"
 
         case "$1" in
-            --nv-glx-offload) prefix_addition="${prefix_addition} __NV_PRIME_RENDER_OFFLOAD=1 __GLX_VENDOR_LIBRARY_NAME=nvidia";;
+            --nv-gl-offload) prefix_addition="${prefix_addition} __NV_PRIME_RENDER_OFFLOAD=1 __GLX_VENDOR_LIBRARY_NAME=nvidia";;
             --nv-vk-offload) prefix_addition="${prefix_addition} __NV_PRIME_RENDER_OFFLOAD=1 __VK_LAYER_NV_optimus=NVIDIA_only";;
+            --nv-threaded-gl) prefix_addition="${prefix_addition} __GL_THREADED_OPTIMIZATIONS=1";;
+            --mesa-glthread) prefix_addition="${prefix_addition} mesa_glthread=true";;
             --use-zink) prefix_addition="${prefix_addition} __GLX_VENDOR_LIBRARY_NAME=mesa MESA_LOADER_DRIVER_OVERRIDE=zink GALLIUM_DRIVER=zink";;
             --prime-offload) prefix_addition="${prefix_addition} DRI_PRIME=1";;
-            --game-mode) prefix_addition="${game_cmd_prefix} gamemoderun";;
+            --game-mode) game_mode="gamemoderun";;
 
         esac
 
@@ -169,10 +170,10 @@ operation_run() {
     cd "$game_dir"
 
     if [ "$game_runner" = "native" ]; then
-        env $game_cmd_prefix $prefix_addition ./$game_exe
+        env $game_cmd_prefix $prefix_addition $game_mode ./$game_exe
 
     else
-        env $game_cmd_prefix $prefix_addition wine $game_exe > /dev/null 2>&1
+        env $game_cmd_prefix $prefix_addition $game_mode wine $game_exe > /dev/null 2>&1
 
     fi
 
@@ -243,8 +244,11 @@ Example: shin add <game path>
 
 \`run\` Options:
 
-         --nv-glx-offload           Run OpenGL game on NVIDIA GPU
+         --nv-gl-offload            Run OpenGL game on NVIDIA GPU
          --nv-vk-offload            Run Vulkan game on NVIDIA GPU
+         --nv-threaded-gl           Allow NVIDIA OpenGL driver to run multi-threaded.
+                                    performance on CPU intensive games
+         --mesa-glthread            Allow Mesa OpenGL driver to run multi-threaded.
          --use-zink                 Translate OpenGL to Vulkan using Mesa Zink driver, might improve
                                     OpenGL games performance and cause graphical glitches
          --prime-offload            Run the game on discrete GPU using PRIME render offload
