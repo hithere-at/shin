@@ -184,6 +184,8 @@ operation_run() {
 operation_add() {
     local exe_type runner cmd_prefix is_vulkan_there game_dir game_exe
 
+    ! [ -d "~/.local/share/shin" ] && mkdir -p ~/.local/share/shin
+
     exe_type=$(echo "$3" | grep -o ".exe$")
     game_file=$(realpath "$3")
 
@@ -211,7 +213,6 @@ operation_add() {
     game_dir="${game_file%/*}"
     game_exe="${game_file##*/}"
 
-    touch ~/.local/share/shin/mess.vars
     printf "${1}_CMD_PREFIX='${cmd_prefix}'\n${1}_NAME='${2}'\n${1}_DIR='${game_dir}'\n${1}_EXE='${game_exe}'\n${1}_RUNNER='${runner}'\n\n" >> ~/.local/share/shin/mess.vars
 
 }
