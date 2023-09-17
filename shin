@@ -211,6 +211,7 @@ operation_add() {
     game_dir="${game_file%/*}"
     game_exe="${game_file##*/}"
 
+    touch ~/.local/share/shin/mess.vars
     printf "${1}_CMD_PREFIX='${cmd_prefix}'\n${1}_NAME='${2}'\n${1}_DIR='${game_dir}'\n${1}_EXE='${game_exe}'\n${1}_RUNNER='${runner}'\n\n" >> ~/.local/share/shin/mess.vars
 
 }
