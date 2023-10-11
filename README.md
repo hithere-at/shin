@@ -1,5 +1,8 @@
- # shin
+# shin
 A game launcher that "just works". It aims to setup your pre-installed game easier.
+
+# Now on C
+I decided to rewrite this in C as a learning project. The code is messy, probably unsafe, and a dumpster fire. Currently, its not usable.
 
 ## How to use
 To add game, simply run `$ shin add <path to game>`. You will be prompted to enter the game ID and the game name.
@@ -21,4 +24,3 @@ You can configure your game manually by editing the file located at `~/.local/sh
 
 #### Why does this exist
 I have been using a specific game launcher and evertime i try to setup my games, it usually doesnt end up well. Some game have a weird GLX error and some game doesnt have DXVK installed even though i have turned on the option. This project wouldnt exist if its not because of my frustration.
-
